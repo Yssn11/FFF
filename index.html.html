@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+<meta charset="UTF-8">
+<title>MedDoctordle</title>
+
+<style>
+
+/* === خلفية متدرجة متحركة === */
+body{
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(-45deg,#1e3c72,#2a5298,#0f2027,#203a43);
+  background-size: 400% 400%;
+  animation: gradientMove 15s ease infinite;
+  text-align:center;
+  padding:40px;
+  color:white;
+  overflow-x:hidden;
+}
+
+@keyframes gradientMove{
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+
+/* === Header === */
+h1{
+  font-size:40px;
+  margin-bottom:30px;
+  animation: fadeDown 1s ease;
+}
+
+@keyframes fadeDown{
+  from{opacity:0; transform:translateY(-20px)}
+  to{opacity:1; transform:translateY(0)}
+}
+
+/* === Container Glass Effect === */
+.container{
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(12px);
+  padding:30px;
+  border-radius:20px;
+  max-width:700px;
+  margin:auto;
+  box-shadow:0 15px 35px rgba(0,0,0,0.3);
+  position:relative;
+  overflow:hidden;
+  animation: fadeUp 1s ease;
+}
+
+@keyframes fadeUp{
+  from{opacity:0; transform:translateY(30px)}
+  to{opacity:1; transform:translateY(0)}
+}
+
+/* === Case text === */
+.case{
+  font-size:20px;
+  margin-bottom:25px;
+}
+
+/* === Input + Button === */
+input{
+  padding:12px;
+  font-size:16px;
+  width:60%;
+  border:none;
+  border-radius:6px;
+  margin-right:10px;
+}
+
+button{
+  padding:12px 20px;
+  font-size:16px;
+  background:linear-gradient(45deg,#00c6ff,#0072ff);
+  border:none;
+  color:white;
+  border-radius:6px;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+button:hover{
+  transform:scale(1.05);
+  box-shadow:0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* === Case Selector === */
+.case-selector{
+  margin-bottom:30px;
+}
+.case-box{
+  display:inline-block;
+  width:45px;
+  height:45px;
+  line-height:45px;
+  margin:6px;
+  background:rgba(255,255,255,0.15);
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:bold;
+  transition:0.3s;
+}
+.case-box:hover{
+  transform:scale(1.2);
+  background:#00c6ff;
+}
+.active{
+  background:#00ff9d;
+  color:black;
+}
+
+/* === History === */
+.history{
+  margin-top:20px;
+}
+.correct{
+  color:#00ff9d;
+  font-weight:bold;
+}
+.wrong{
+  color:#ff6b6b;
+}
+
+/* === Indices === */
+h3{
+  margin-top:30px;
+}
+
+.hints{
+  margin-top:15px;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+}
+
+.hint-card{
+  background:rgba(255,255,255,0.15);
+  padding:12px 18px;
+  border-radius:8px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.3);
+  animation: hintAppear 0.5s ease;
+  position:relative;
+}
+
+/* ستكر صغير على البطاقة */
+.hint-card::before{
+  content:'🩺';
+  position:absolute;
+  top:-8px;
+  left:-8px;
+  font-size:18px;
+}
+
+@keyframes hintAppear{
+  from{opacity:0; transform:scale(0.8);}
+  to{opacity:1; transform:scale(1);}
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>🩺 MedDoctordle</h1>
+
+<div class="case-selector" id="caseSelector"></div>
+
+<div class="container">
+  <div id="case" class="case"></div>
+
+  <input id="guess" list="diseases" placeholder="Entrez le diagnostic">
+  <datalist id="diseases"></datalist>
+
+  <button onclick="submitGuess()">Valider</button>
+
+  <div id="result"></div>
+  <div id="history" class="history"></div>
+
+  <h3 id="indiceTitle" style="display:none">INDICES</h3>
+  <div id="hints" class="hints"></div>
+</div>
+
+<script>
+
+// ======== البيانات ========
+let cases=[
+  {
+    case:"Homme 65 ans, douleur thoracique brutale, dyspnée, tachycardie",
+    diagnosis:"embolie pulmonaire",
+    hints:["D-dimères élevés","Facteur de risque: immobilisation","Angioscanner positif"]
+  },
+  {
+    case:"Femme 30 ans, fatigue, prise de poids, frilosité",
+    diagnosis:"hypothyroidie",
+    hints:["TSH élevée","T4 basse","Peau sèche"]
+  },
+  {
+    case:"Patient 55 ans, polyurie, polydipsie",
+    diagnosis:"diabete",
+    hints:["Glycémie élevée","HbA1c élevée","Polyphagie"]
+  },
+  {
+    case:"Douleur épigastrique transfixiante vers le dos",
+    diagnosis:"pancreatite",
+    hints:["Lipase élevée","Douleur post alcool","Scanner pancréatique"]
+  },
+  {
+    case:"Fièvre + raideur de nuque + photophobie",
+    diagnosis:"meningite",
+    hints:["PL anormale","Hyperleucocytose","Signe de Kernig"]
+  }
+];
+
+let diseases=[
+"appendicite","pancreatite","cholecystite","hepatite","cirrhose","ulcere gastrique","gastrite",
+"occlusion intestinale","peritonite","diverticulite","diabete","hypothyroidie","hyperthyroidie",
+"syndrome de cushing","maladie d addison","hyperparathyroidie","hypoparathyroidie","pheochromocytome",
+"infarctus du myocarde","embolie pulmonaire","insuffisance cardiaque","tamponnade cardiaque",
+"pericardite","endocardite","cardiomyopathie","arythmie","pneumonie","tuberculose","asthme",
+"bronchite","BPCO","cancer pulmonaire","pleuresie","pneumothorax","meningite","encephalite",
+"epilepsie","AVC","migraine","maladie de parkinson","sclerose en plaques","neuropathie",
+"pyelonephrite","glomerulonephrite","insuffisance renale","lithiase renale","syndrome nephrotique",
+"anemie","leucemie","lymphome","hemophilie","thalassemie","lupus","polyarthrite rhumatoide",
+"sclerodermie","vasculite","paludisme","brucellose","leishmaniose","covid 19","grippe","sepsis"
+];
+
+let currentCaseIndex = 0;
+let attempts = 0;
+let maxAttempts = 6;
+
+// ======== تحميل أمراض autocomplete ========
+let datalist=document.getElementById("diseases");
+diseases.forEach(d => {
+  let option=document.createElement("option");
+  option.value=d;
+  datalist.appendChild(option);
+});
+
+// ======== دالة الستكر عند الإجابة ========
+function showSticker(type){
+  let sticker=document.createElement('div');
+  sticker.style.position='absolute';
+  sticker.style.fontSize='40px';
+  sticker.style.top='10px';
+  sticker.style.right='10px';
+  sticker.style.opacity=1;
+  sticker.innerText= type=='correct' ? '✅' : '❌';
+  document.querySelector('.container').appendChild(sticker);
+  setTimeout(()=>{sticker.remove();},1000);
+}
+
+// ======== اختيار الحالة ========
+function loadCase(index){
+  currentCaseIndex=index;
+  attempts=0;
+  document.getElementById("case").innerHTML=cases[index].case;
+  document.getElementById("history").innerHTML="";
+  document.getElementById("hints").innerHTML="";
+  document.getElementById("indiceTitle").style.display="none";
+  document.getElementById("result").innerHTML="";
+  document.getElementById("guess").disabled=false;
+  updateActiveBox();
+}
+
+// ======== دالة submitGuess ========
+function submitGuess(){
+  let guess=document.getElementById("guess").value.toLowerCase();
+  let currentCase=cases[currentCaseIndex];
+  attempts++;
+
+  if(guess===currentCase.diagnosis){
+    document.getElementById("result").innerHTML="<span class='correct'>Correct !</span>";
+    document.getElementById("guess").disabled=true;
+    showSticker('correct');
+  }else{
+    document.getElementById("history").innerHTML+="<div class='wrong'>"+guess+" ❌</div>";
+    if(attempts<=currentCase.hints.length){
+      let hint=currentCase.hints[attempts-1];
+      document.getElementById("indiceTitle").style.display="block";
+      let card=document.createElement("div");
+      card.className="hint-card";
+      card.innerText="Indice "+attempts+" : "+hint;
+      document.getElementById("hints").appendChild(card);
+    }
+    showSticker('wrong');
+    if(attempts>=maxAttempts){
+      document.getElementById("result").innerHTML=
+      "<span class='wrong'>Perdu ! Diagnostic: "+currentCase.diagnosis+"</span>";
+      document.getElementById("guess").disabled=true;
+    }
+  }
+  document.getElementById("guess").value="";
+}
+
+// ======== إنشاء مربعات الحالات ========
+function createCaseSelector(){
+  let selector=document.getElementById("caseSelector");
+  cases.forEach((c,index)=>{
+    let box=document.createElement("div");
+    box.className="case-box";
+    box.innerText=index+1;
+    box.onclick=function(){ loadCase(index); }
+    selector.appendChild(box);
+  });
+}
+
+function updateActiveBox(){
+  let boxes=document.querySelectorAll(".case-box");
+  boxes.forEach((box,i)=>{
+    box.classList.remove("active");
+    if(i===currentCaseIndex){ box.classList.add("active"); }
+  });
+}
+
+// ======== تهيئة الموقع ========
+createCaseSelector();
+loadCase(0);
+
+</script>
+
+</body>
+</html>
